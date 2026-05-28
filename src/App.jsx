@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 const SUPABASE_URL = "https://fjzrcvuivtpevxzadwfy.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqenJjdnVpdnRwZXZ4emFkd2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NDg0NDEsImV4cCI6MjA5NTUyNDQ0MX0.lMOCRTaj3xeaTagohksZgZrXa-0PCwUmRZYdGQ7Luq4";
@@ -13,26 +13,26 @@ const STAFF_CODES = {
   "6012526": "Đặng Ngọc Lê Hoàng Oanh", "6012525": "Trần Hoàng Thịnh",
 };
 const CINEMA_CODE = "6003450";
+const EXIT_CODE = "OHE123";
 const ADMIN_CODE = "Nh@u2005";
 
-// Zone groups: workshop pairs share a total quota
 const WORKSHOP_GROUPS = {
-  flower:  { ids: ["workshop_flower_1",  "workshop_flower_2"],  maxTotal: 15 },
+  flower:  { ids: ["workshop_flower_1", "workshop_flower_2"],   maxTotal: 15 },
   perfume: { ids: ["workshop_perfume_1", "workshop_perfume_2"], maxTotal: 20 },
 };
 
 const ZONES = [
-  { id: "l1_reception",      name: "Tiếp đón L1",         icon: "🏛️", maxCapacity: 8, hasBusy: false },
-  { id: "workshop_flower_1", name: "Workshop cắm hoa 1",   icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
-  { id: "workshop_flower_2", name: "Workshop cắm hoa 2",   icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
-  { id: "workshop_perfume_1",name: "Workshop nước hoa 1",  icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
-  { id: "workshop_perfume_2",name: "Workshop nước hoa 2",  icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
-  { id: "cinema",            name: "Cinema",               icon: "🎬", maxCapacity: 5, hasBusy: true  },
-  { id: "amenities_l1",      name: "Amenities L1",         icon: "☕", maxCapacity: 6, hasBusy: false },
-  { id: "showroom_1br",      name: "Nhà mẫu 1PN",          icon: "🛏️", maxCapacity: 2, hasBusy: false },
-  { id: "showroom_2br",      name: "Nhà mẫu 2PN",          icon: "🛏️", maxCapacity: 2, hasBusy: false },
-  { id: "showroom_3br",      name: "Nhà mẫu 3PN",          icon: "🛏️", maxCapacity: 2, hasBusy: false },
-  { id: "pool",              name: "Hồ bơi",               icon: "🏊", maxCapacity: 4, hasBusy: false },
+  { id: "l1_reception",       name: "Tiếp đón L1",        icon: "🏛️", maxCapacity: 8, hasBusy: false },
+  { id: "workshop_flower_1",  name: "Workshop cắm hoa 1",  icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
+  { id: "workshop_flower_2",  name: "Workshop cắm hoa 2",  icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
+  { id: "workshop_perfume_1", name: "Workshop nước hoa 1", icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
+  { id: "workshop_perfume_2", name: "Workshop nước hoa 2", icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
+  { id: "cinema",             name: "Cinema",              icon: "🎬", maxCapacity: 5, hasBusy: true  },
+  { id: "amenities_l1",       name: "Amenities L1",        icon: "☕", maxCapacity: 6, hasBusy: false },
+  { id: "showroom_1br",       name: "Nhà mẫu 1PN",         icon: "🛏️", maxCapacity: 2, hasBusy: false },
+  { id: "showroom_2br",       name: "Nhà mẫu 2PN",         icon: "🛏️", maxCapacity: 2, hasBusy: false },
+  { id: "showroom_3br",       name: "Nhà mẫu 3PN",         icon: "🛏️", maxCapacity: 2, hasBusy: false },
+  { id: "pool",               name: "Hồ bơi",              icon: "🏊", maxCapacity: 4, hasBusy: false },
 ];
 
 const STATUS = {
@@ -49,6 +49,12 @@ function getStatus(current, max, busy) {
   return "available";
 }
 
+function fmtDuration(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
 async function dbLoadZones() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zones?select=*`, { headers: HEADERS });
   return res.json();
@@ -59,23 +65,18 @@ async function dbUpdateZone(id, fields) {
 async function dbInsertLog(entry) {
   await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(entry) });
 }
+async function dbLoadLogs() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/zone_logs?select=*&order=created_at.desc&limit=100`, { headers: HEADERS });
+  return res.json();
+}
 async function dbClearLogs() {
   await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "DELETE", headers: { ...HEADERS, "Prefer": "return=minimal" } });
 }
 async function dbResetZones() {
   await fetch(`${SUPABASE_URL}/rest/v1/zones`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify({ current_count: 0, total_visited: 0, is_busy: false, started_at: null }) });
 }
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/zone_logs?select=*&order=created_at.desc&limit=100`, { headers: HEADERS });
-  return res.json();
-}
 
-function fmtDuration(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
-}
-
-function Timer({ startedAt }) {
+function TimerLarge({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!startedAt) return;
@@ -86,23 +87,42 @@ function Timer({ startedAt }) {
     return () => clearInterval(t);
   }, [startedAt]);
   return (
-    <div style={{ textAlign: "center", margin: "8px 0", padding: "8px 0", background: "#e6f1fb", borderRadius: 10 }}>
+    <div style={{ textAlign: "center", margin: "8px 0", padding: "10px 0", background: "#e6f1fb", borderRadius: 10 }}>
       <div style={{ fontSize: 11, color: "#185FA5", fontWeight: 600, marginBottom: 2 }}>⏱️ Đang diễn ra</div>
       <div style={{ fontSize: 28, fontWeight: 900, color: "#185FA5", letterSpacing: 2 }}>{fmtDuration(elapsed)}</div>
     </div>
   );
 }
 
-function PinDialog({ title, onConfirm, onCancel, cinemaOnly, exitOnly }) {
+function TimerSmall({ startedAt }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = new Date(startedAt).getTime();
+    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [startedAt]);
+  return (
+    <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>
+      ⏱️ {fmtDuration(elapsed)}
+    </span>
+  );
+}
+
+function PinDialog({ title, onConfirm, onCancel, mode }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   function submit() {
-    if (cinemaOnly) {
+    if (mode === "cinema") {
       if (pin !== CINEMA_CODE) { setErr("Mã không đúng."); return; }
       onConfirm(`Cinema-${CINEMA_CODE}`);
-    } else if (exitOnly) {
+    } else if (mode === "exit") {
       if (pin !== EXIT_CODE) { setErr("Mã không đúng."); return; }
       onConfirm(`Exit-${EXIT_CODE}`);
+    } else if (mode === "admin") {
+      if (pin !== ADMIN_CODE) { setErr("Mã không đúng."); return; }
+      onConfirm(ADMIN_CODE);
     } else {
       if (!STAFF_CODES[pin]) { setErr("Mã không đúng."); return; }
       onConfirm(`${pin} - ${STAFF_CODES[pin]}`);
@@ -134,7 +154,6 @@ function StaffView({ zones, onAction }) {
   const zoneDef = ZONES.find(z => z.id === zoneId);
   const zone = zones.find(z => z.id === zoneId) || { current_count: 0, total_visited: 0, is_busy: false, started_at: null };
 
-  // Group quota check
   const group = zoneDef.group ? WORKSHOP_GROUPS[zoneDef.group] : null;
   const groupTotal = group ? group.ids.reduce((acc, id) => {
     const z = zones.find(r => r.id === id);
@@ -156,7 +175,8 @@ function StaffView({ zones, onAction }) {
       out:  `Ghi nhận ${count} khách RA\n"${zoneDef.name}"?`,
       busy: zone.is_busy ? `Kết thúc session\n"${zoneDef.name}"?` : `Bắt đầu session\n"${zoneDef.name}"?`,
     };
-    setDialog({ type, msg: msgs[type], cinemaOnly: type === "busy", exitOnly: type === "out" });
+    const modes = { in: "staff", out: "exit", busy: "cinema" };
+    setDialog({ type, msg: msgs[type], mode: modes[type] });
   }
 
   async function handleConfirm(staffCode) {
@@ -167,7 +187,7 @@ function StaffView({ zones, onAction }) {
 
   return (
     <div>
-      {dialog && <PinDialog title={dialog.msg} cinemaOnly={dialog.cinemaOnly} exitOnly={dialog.exitOnly} onConfirm={handleConfirm} onCancel={() => setDialog(null)} />}
+      {dialog && <PinDialog title={dialog.msg} mode={dialog.mode} onConfirm={handleConfirm} onCancel={() => setDialog(null)} />}
 
       <select value={zoneId} onChange={e => { setZoneId(e.target.value); setCount(1); }}
         style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #ddd", fontSize: 15, background: "#fff", marginBottom: 14, fontWeight: 600 }}>
@@ -178,19 +198,17 @@ function StaffView({ zones, onAction }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17, color: "#1a1a2e" }}>{zoneDef.icon} {zoneDef.name}</div>
-            <div style={{ fontSize: 12, color: "#aaa" }}>Tối đa: {zoneDef.maxCapacity} người/lần
-              {group ? ` · Còn lại tổng nhóm: ${groupRemaining}` : ""}
-            </div>
+            <div style={{ fontSize: 12, color: "#aaa" }}>Tối đa: {zoneDef.maxCapacity} người/lần{group ? ` · Còn lại nhóm: ${groupRemaining}` : ""}</div>
           </div>
           <div style={{ background: col.bg, color: col.text, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, border: `1px solid ${col.border}` }}>{col.label}</div>
         </div>
 
-        {zone.is_busy && zone.started_at && <Timer startedAt={zone.started_at} />}
+        {zone.is_busy && zone.started_at && <TimerLarge startedAt={zone.started_at} />}
 
         <div style={{ textAlign: "center", margin: "16px 0" }}>
           <div style={{ fontSize: 72, fontWeight: 900, color: col.text, lineHeight: 1 }}>{zone.current_count}</div>
           <div style={{ fontSize: 14, color: "#aaa", marginTop: 4 }}>/ {zoneDef.maxCapacity} người</div>
-          {group && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Tổng nhóm đã dùng: {groupTotal} / {group.maxTotal} lượt</div>}
+          {group && <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>Tổng nhóm: {groupTotal} / {group.maxTotal} lượt</div>}
         </div>
 
         <div style={{ background: "#f0f0f0", borderRadius: 99, height: 10, overflow: "hidden", marginBottom: 18 }}>
@@ -201,18 +219,16 @@ function StaffView({ zones, onAction }) {
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 12, color: "#888", marginBottom: 8, textAlign: "center" }}>Số khách cùng lúc</div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <button onClick={() => setCount(c => Math.max(1, c - 1))}
-                style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>−</button>
+              <button onClick={() => setCount(c => Math.max(1, c - 1))} style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>−</button>
               <span style={{ fontSize: 32, fontWeight: 900, color: "#185FA5", minWidth: 40, textAlign: "center" }}>{count}</span>
-              <button onClick={() => setCount(c => Math.min(Math.max(maxIn, 1), c + 1))}
-                style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>+</button>
+              <button onClick={() => setCount(c => Math.min(Math.max(maxIn, 1), c + 1))} style={{ width: 40, height: 40, borderRadius: "50%", border: "1.5px solid #ddd", background: "#f5f5f5", fontSize: 20, cursor: "pointer", fontWeight: 700 }}>+</button>
             </div>
           </div>
         )}
 
         {zoneDef.hasBusy && (
           <button onClick={() => ask("busy")}
-            style={{ width: "100%", padding: "11px 0", marginBottom: 12, border: `1px solid ${zone.is_busy ? "#e24b4a" : "#185FA5"}`, borderRadius: 10, background: zone.is_busy ? "#e24b4a" : "#185FA5", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>
+            style={{ width: "100%", padding: "11px 0", marginBottom: 12, border: "none", borderRadius: 10, background: zone.is_busy ? "#e24b4a" : "#185FA5", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>
             {zone.is_busy ? "⏹️ Kết thúc session" : "▶️ Bắt đầu session"}
           </button>
         )}
@@ -250,7 +266,6 @@ function AdminDashboard({ zones }) {
         ))}
       </div>
 
-      {/* Workshop group summaries */}
       {Object.entries(WORKSHOP_GROUPS).map(([key, g]) => {
         const total = g.ids.reduce((acc, id) => {
           const z = zones.find(r => r.id === id);
@@ -265,7 +280,7 @@ function AdminDashboard({ zones }) {
               <span style={{ fontSize: 13, color: "#185FA5", fontWeight: 700 }}>{total} / {g.maxTotal} lượt</span>
             </div>
             <div style={{ background: "#f0f0f0", borderRadius: 99, height: 8, overflow: "hidden" }}>
-              <div style={{ width: `${pct}%`, background: pct >= 100 ? "#e24b4a" : "#185FA5", height: "100%", borderRadius: 99, transition: "width 0.3s" }} />
+              <div style={{ width: `${pct}%`, background: pct >= 100 ? "#e24b4a" : "#185FA5", height: "100%", borderRadius: 99 }} />
             </div>
           </div>
         );
@@ -288,7 +303,7 @@ function AdminDashboard({ zones }) {
               </div>
             </div>
             <div style={{ background: "#f0f0f0", borderRadius: 99, height: 8, overflow: "hidden" }}>
-              <div style={{ width: `${pct}%`, background: status === "full" ? "#e24b4a" : status === "warning" ? "#fac775" : status === "busy" ? "#185FA5" : "#3B6D11", height: "100%", borderRadius: 99, transition: "width 0.3s" }} />
+              <div style={{ width: `${pct}%`, background: status === "full" ? "#e24b4a" : status === "warning" ? "#fac775" : status === "busy" ? "#185FA5" : "#3B6D11", height: "100%", borderRadius: 99 }} />
             </div>
           </div>
         );
@@ -297,47 +312,18 @@ function AdminDashboard({ zones }) {
   );
 }
 
-function TimerSmall({ startedAt }) {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const start = new Date(startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [startedAt]);
-  return <span style={{ fontSize: 13, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>⏱️ {fmtDuration(elapsed)}</span>;
-}
-
 function HistoryTab({ logs, onClear }) {
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pin, setPin] = useState("");
-  const [err, setErr] = useState("");
-
-  function handleClear() {
-    if (pin !== ADMIN_CODE) { setErr("Mã không đúng."); return; }
-    setShowConfirm(false);
-    setPin(""); setErr("");
-  }
 
   return (
     <div>
       {showConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-          <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 300, textAlign: "center" }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🗑️</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#a32d2d", marginBottom: 4 }}>Xóa toàn bộ lịch sử?</div>
-            <div style={{ fontSize: 12, color: "#aaa", marginBottom: 16 }}>Thao tác này sẽ xóa cả số liệu zone.<br/>Nhập mã xác nhận để tiếp tục.</div>
-            <input type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }}
-              onKeyDown={e => e.key === "Enter" && handleClear()} placeholder="Nhập mã..."
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: `2px solid ${err ? "#e24b4a" : "#dde4f0"}`, fontSize: 16, textAlign: "center", letterSpacing: 4, boxSizing: "border-box", outline: "none", marginBottom: 8 }} autoFocus />
-            {err && <div style={{ color: "#e24b4a", fontSize: 12, marginBottom: 8 }}>⚠️ {err}</div>}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { setShowConfirm(false); setPin(""); setErr(""); }} style={{ flex: 1, padding: "10px 0", border: "1px solid #ddd", borderRadius: 8, background: "#f5f5f5", cursor: "pointer", fontSize: 14 }}>Hủy</button>
-              <button onClick={handleClear} style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 8, background: "#e24b4a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Xóa tất cả</button>
-            </div>
-          </div>
-        </div>
+        <PinDialog
+          title={`Xóa toàn bộ lịch sử\nvà reset tất cả zone?`}
+          mode="admin"
+          onConfirm={() => { onClear(); setShowConfirm(false); }}
+          onCancel={() => setShowConfirm(false)}
+        />
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -388,10 +374,7 @@ export default function App() {
 
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
-  async function handleClear() {
-    await Promise.all([dbClearLogs(), dbResetZones()]);
-    await load();
-  }
+  async function handleAction(zoneId, type, count, staffCode, zoneData) {
     let fields = {};
     let action = type;
     if (type === "in") {
@@ -405,6 +388,11 @@ export default function App() {
     }
     await dbUpdateZone(zoneId, fields);
     await dbInsertLog({ zone_id: zoneId, action, count: type === "busy" ? null : count, staff_code: staffCode });
+    await load();
+  }
+
+  async function handleClear() {
+    await Promise.all([dbClearLogs(), dbResetZones()]);
     await load();
   }
 
@@ -427,13 +415,14 @@ export default function App() {
         ))}
       </div>
 
-      {loading ? <div style={{ textAlign: "center", padding: 60, color: "#888" }}>⏳ Đang tải...</div> : (
-        <>
-          {tab === "staff"   && <StaffView zones={zones} onAction={handleAction} />}
-          {tab === "admin"   && <AdminDashboard zones={zones} />}
-          {tab === "history" && <HistoryTab logs={logs} onClear={handleClear} />}
-        </>
-      )}
+      {loading
+        ? <div style={{ textAlign: "center", padding: 60, color: "#888" }}>⏳ Đang tải...</div>
+        : <>
+            {tab === "staff"   && <StaffView zones={zones} onAction={handleAction} />}
+            {tab === "admin"   && <AdminDashboard zones={zones} />}
+            {tab === "history" && <HistoryTab logs={logs} onClear={handleClear} />}
+          </>
+      }
     </div>
   );
 }
