@@ -70,10 +70,17 @@ async function dbLoadLogs() {
   return res.json();
 }
 async function dbClearLogs() {
-  await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "DELETE", headers: { ...HEADERS, "Prefer": "return=minimal" } });
+  await fetch(`${SUPABASE_URL}/rest/v1/zone_logs?id=gte.0`, { method: "DELETE", headers: { ...HEADERS, "Prefer": "return=minimal" } });
 }
 async function dbResetZones() {
-  await fetch(`${SUPABASE_URL}/rest/v1/zones`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify({ current_count: 0, total_visited: 0, is_busy: false, started_at: null }) });
+  const ids = ZONES.map(z => z.id);
+  for (const id of ids) {
+    await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { ...HEADERS, "Prefer": "return=minimal" },
+      body: JSON.stringify({ current_count: 0, total_visited: 0, is_busy: false, started_at: null })
+    });
+  }
 }
 
 function TimerLarge({ startedAt }) {
