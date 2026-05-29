@@ -402,7 +402,10 @@ function HistoryTab({ logs, onClear }) {
                   </span>
                   <span style={{ fontSize: 13, color: "#555", marginLeft: 8 }}>{zone ? `${zone.icon} ${zone.name}` : log.zone_id}</span>
                 </div>
-                <span style={{ fontSize: 11, color: "#aaa", background: "#f5f5f5", borderRadius: 8, padding: "2px 8px" }}>{log.staff_code}</span>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                  {log.staff_code && <span style={{ fontSize: 11, color: "#555", background: "#eaf3de", borderRadius: 8, padding: "2px 8px" }}>NV: {log.staff_code}</span>}
+                  {log.btc_code && <span style={{ fontSize: 11, color: "#aaa", background: "#f5f5f5", borderRadius: 8, padding: "2px 8px" }}>BTC: {log.btc_code}</span>}
+                </div>
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>{new Date(log.created_at).toLocaleString("vi-VN")}</div>
             </div>
@@ -445,7 +448,7 @@ export default function App() {
       action = turningOn ? "busy_on" : "busy_off";
     }
     await dbUpdateZone(zoneId, fields);
-    await dbInsertLog({ zone_id: zoneId, action, count: (type === "busy" || type === "end_session") ? null : count, staff_code: staffCode });
+    await dbInsertLog({ zone_id: zoneId, action, count: (type === "busy" || type === "end_session") ? null : count, staff_code: staffCode, btc_code: `BTC-${btcCode}` });
     await load();
   }
 
