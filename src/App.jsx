@@ -395,16 +395,16 @@ function HistoryTab({ logs, onClear }) {
           const isOut = log.action === "out" || log.action === "end_session";
           return (
             <div key={i} style={{ background: "#fff", borderRadius: 10, padding: "10px 14px", marginBottom: 8, border: "1px solid #e8e8e8" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
                   <span style={{ fontWeight: 700, fontSize: 14, color: isIn ? "#3B6D11" : isOut ? "#e24b4a" : "#185FA5" }}>
                     {isIn ? `+${log.count} vào` : log.action === "end_session" ? "⏹️ Kết thúc (→0)" : isOut ? `−${log.count} ra` : log.action === "busy_on" ? "▶️ Bắt đầu" : "⏹️ Kết thúc"}
                   </span>
                   <span style={{ fontSize: 13, color: "#555", marginLeft: 8 }}>{zone ? `${zone.icon} ${zone.name}` : log.zone_id}</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                  {log.staff_code && <span style={{ fontSize: 11, color: "#555", background: "#eaf3de", borderRadius: 8, padding: "2px 8px" }}>NV: {log.staff_code}</span>}
-                  {log.btc_code && <span style={{ fontSize: 11, color: "#aaa", background: "#f5f5f5", borderRadius: 8, padding: "2px 8px" }}>BTC: {log.btc_code}</span>}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, minWidth: 0, marginLeft: 8 }}>
+                  {log.btc_code && <span style={{ fontSize: 11, background: "#e6f1fb", color: "#185FA5", borderRadius: 8, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>🔐 {log.btc_code}</span>}
+                  {log.staff_code && log.staff_code !== log.btc_code && <span style={{ fontSize: 11, background: "#eaf3de", color: "#3B6D11", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap" }}>👤 {log.staff_code}</span>}
                 </div>
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>{new Date(log.created_at).toLocaleString("vi-VN")}</div>
