@@ -432,7 +432,7 @@ export default function App() {
 
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
-  async function handleAction(zoneId, type, count, staffCode, zoneData) {
+  async function handleAction(zoneId, type, count, staffCode, zoneData, currentBtcCode) {
     let fields = {};
     let action = type;
     if (type === "in") {
@@ -448,7 +448,13 @@ export default function App() {
       action = turningOn ? "busy_on" : "busy_off";
     }
     await dbUpdateZone(zoneId, fields);
-    await dbInsertLog({ zone_id: zoneId, action, count: (type === "busy" || type === "end_session") ? null : count, staff_code: staffCode, btc_code: `BTC-${btcCode}` });
+    await dbInsertLog({
+      zone_id: zoneId,
+      action,
+      count: (type === "busy" || type === "end_session") ? null : count,
+      staff_code: staffCode,
+      btc_code: `BTC-${currentBtcCode}`
+    });
     await load();
   }
 
