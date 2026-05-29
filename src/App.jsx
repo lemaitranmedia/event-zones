@@ -403,8 +403,8 @@ function HistoryTab({ logs, onClear }) {
                   <span style={{ fontSize: 13, color: "#555", marginLeft: 8 }}>{zone ? `${zone.icon} ${zone.name}` : log.zone_id}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, minWidth: 0, marginLeft: 8 }}>
-                  {log.btc_code && <span style={{ fontSize: 11, background: "#e6f1fb", color: "#185FA5", borderRadius: 8, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>🔐 {log.btc_code}</span>}
-                  {log.staff_code && log.staff_code !== log.btc_code && <span style={{ fontSize: 11, background: "#eaf3de", color: "#3B6D11", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap" }}>👤 {log.staff_code}</span>}
+                  {log.btc_code && <span style={{ fontSize: 11, background: "#e6f1fb", color: "#185FA5", borderRadius: 8, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>🔐 Đăng nhập: {log.btc_code}</span>}
+                  {log.staff_code && <span style={{ fontSize: 11, background: "#eaf3de", color: "#3B6D11", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap" }}>👤 Xác nhận: {log.staff_code}</span>}
                 </div>
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>{new Date(log.created_at).toLocaleString("vi-VN")}</div>
@@ -453,7 +453,7 @@ export default function App() {
       action,
       count: (type === "busy" || type === "end_session") ? null : count,
       staff_code: staffCode,
-      btc_code: `BTC-${currentBtcCode}`
+      btc_code: currentBtcCode ? `BTC-${currentBtcCode}` : null
     });
     await load();
   }
