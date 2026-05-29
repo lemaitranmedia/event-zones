@@ -211,7 +211,7 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
     if (zone.is_busy) {
       setDialog({ type: "confirm_end", msg: `Kết thúc session "${zoneDef.name}"?\nSố người sẽ về 0.` });
     } else {
-      setDialog({ type: "pin_busy", msg: `Bắt đầu session\n"${zoneDef.name}"?` });
+      setDialog({ type: "confirm_busy", msg: `Bắt đầu session\n"${zoneDef.name}"?` });
     }
   }
 
@@ -223,8 +223,8 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
       await onAction(zoneId, "in", count, staffCode, zone);
     } else if (d.type === "confirm_out") {
       await onAction(zoneId, "out", count, `BTC-${btcCode}`, zone);
-    } else if (d.type === "pin_busy") {
-      await onAction(zoneId, "busy", count, staffCode, zone);
+    } else if (d.type === "confirm_busy") {
+      await onAction(zoneId, "busy", count, `BTC-${btcCode}`, zone);
     } else if (d.type === "confirm_end") {
       await onAction(zoneId, "end_session", count, `BTC-${btcCode}`, zone);
     }
@@ -232,14 +232,11 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
 
   return (
     <div>
-      {dialog && (dialog.type === "confirm_out" || dialog.type === "confirm_end") && (
+      {dialog && (dialog.type === "confirm_out" || dialog.type === "confirm_end" || dialog.type === "confirm_busy") && (
         <ConfirmDialog title={dialog.msg} onConfirm={() => handleConfirm(null)} onCancel={() => setDialog(null)} />
       )}
       {dialog && dialog.type === "pin_in" && (
         <PinDialog title={dialog.msg} mode="staff" onConfirm={handleConfirm} onCancel={() => setDialog(null)} />
-      )}
-      {dialog && dialog.type === "pin_busy" && (
-        <PinDialog title={dialog.msg} mode="cinema" onConfirm={handleConfirm} onCancel={() => setDialog(null)} />
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, background: "#e6f1fb", borderRadius: 10, padding: "10px 14px" }}>
