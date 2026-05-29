@@ -13,7 +13,6 @@ const STAFF_CODES = {
   "6012526": "Đặng Ngọc Lê Hoàng Oanh", "6012525": "Trần Hoàng Thịnh",
 };
 const BTC_LOGIN_CODES = ["0000", "1111", "6003450", "6011226", "6008340", "6011402", "6012470"];
-const CINEMA_CODE = "6003450";
 const ADMIN_CODE = "Nh@u2005";
 
 const WORKSHOP_GROUPS = {
@@ -48,12 +47,11 @@ function getStatus(current, max, busy) {
   if (current >= max * 0.75) return "warning";
   return "available";
 }
-function fmtDuration(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
+function fmtDuration(sec) {
+  return `${Math.floor(sec/60).toString().padStart(2,"0")}:${(sec%60).toString().padStart(2,"0")}`;
 }
 
+// ── Supabase ────────────────────────────────────────────────────
 async function dbLoadZones() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zones?select=*`, { headers: HEADERS });
   return res.json();
@@ -80,15 +78,14 @@ async function dbResetZones() {
   }
 }
 
+// ── Timers ──────────────────────────────────────────────────────
 function TimerLarge({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!startedAt) return;
     const start = new Date(startedAt).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
+    tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
   return (
     <div style={{ textAlign: "center", margin: "8px 0", padding: "10px 0", background: "#e6f1fb", borderRadius: 10 }}>
@@ -97,46 +94,62 @@ function TimerLarge({ startedAt }) {
     </div>
   );
 }
-
 function TimerSmall({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = new Date(startedAt).getTime();
     const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
+    tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
   return <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>⏱️ {fmtDuration(elapsed)}</span>;
 }
 
-function PinDialog({ title, onConfirm, onCancel, mode }) {
+// ── Dialogs ─────────────────────────────────────────────────────
+function PinDialog({ title, onConfirm, onCancel }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
   function submit() {
-    if (mode === "cinema") {
-      if (pin !== CINEMA_CODE) { setErr("Mã không đúng."); return; }
-      onConfirm(`Cinema-${CINEMA_CODE}`);
-    } else if (mode === "admin") {
-      if (pin !== ADMIN_CODE) { setErr("Mã không đúng."); return; }
-      onConfirm(ADMIN_CODE);
-    } else {
-      if (!STAFF_CODES[pin]) { setErr("Mã không đúng."); return; }
-      onConfirm(`${pin} - ${STAFF_CODES[pin]}`);
-    }
+    if (!STAFF_CODES[pin]) { setErr("Mã nhân viên không đúng."); return; }
+    onConfirm(`${pin} - ${STAFF_CODES[pin]}`);
   }
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 300, textAlign: "center" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 4, whiteSpace: "pre-line" }}>{title}</div>
-        <div style={{ fontSize: 12, color: "#aaa", marginBottom: 16 }}>Nhập mã xác nhận</div>
+        <div style={{ fontSize: 12, color: "#aaa", marginBottom: 16 }}>Nhập mã nhân viên xác nhận</div>
         <input type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }}
-          onKeyDown={e => e.key === "Enter" && submit()} placeholder="Nhập mã..."
+          onKeyDown={e => e.key === "Enter" && submit()} placeholder="Mã nhân viên..."
           style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: `2px solid ${err ? "#e24b4a" : "#dde4f0"}`, fontSize: 16, textAlign: "center", letterSpacing: 4, boxSizing: "border-box", outline: "none", marginBottom: 8 }} autoFocus />
         {err && <div style={{ color: "#e24b4a", fontSize: 12, marginBottom: 8 }}>⚠️ {err}</div>}
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onCancel} style={{ flex: 1, padding: "10px 0", border: "1px solid #ddd", borderRadius: 8, background: "#f5f5f5", cursor: "pointer", fontSize: 14 }}>Hủy</button>
           <button onClick={submit} style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 8, background: "#185FA5", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Xác nhận</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPinDialog({ onConfirm, onCancel }) {
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  function submit() {
+    if (pin !== ADMIN_CODE) { setErr("Mã không đúng."); return; }
+    onConfirm();
+  }
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 24, width: 300, textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🗑️</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#a32d2d", marginBottom: 4 }}>Xóa toàn bộ lịch sử?</div>
+        <div style={{ fontSize: 12, color: "#aaa", marginBottom: 16 }}>Nhập mã admin để xác nhận</div>
+        <input type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }}
+          onKeyDown={e => e.key === "Enter" && submit()} placeholder="Mã admin..."
+          style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: `2px solid ${err ? "#e24b4a" : "#dde4f0"}`, fontSize: 16, textAlign: "center", letterSpacing: 4, boxSizing: "border-box", outline: "none", marginBottom: 8 }} autoFocus />
+        {err && <div style={{ color: "#e24b4a", fontSize: 12, marginBottom: 8 }}>⚠️ {err}</div>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: "10px 0", border: "1px solid #ddd", borderRadius: 8, background: "#f5f5f5", cursor: "pointer", fontSize: 14 }}>Hủy</button>
+          <button onClick={submit} style={{ flex: 1, padding: "10px 0", border: "none", borderRadius: 8, background: "#e24b4a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 14 }}>Xóa tất cả</button>
         </div>
       </div>
     </div>
@@ -158,6 +171,7 @@ function ConfirmDialog({ title, onConfirm, onCancel }) {
   );
 }
 
+// ── BTC Login ───────────────────────────────────────────────────
 function BtcLogin({ onLogin }) {
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
@@ -169,9 +183,9 @@ function BtcLogin({ onLogin }) {
     <div style={{ maxWidth: 320, margin: "60px auto", padding: 24, background: "#fff", borderRadius: 16, boxShadow: "0 2px 12px rgba(0,0,0,0.1)", textAlign: "center" }}>
       <div style={{ fontSize: 36, marginBottom: 8 }}>🔐</div>
       <div style={{ fontSize: 18, fontWeight: 800, color: "#1a1a2e", marginBottom: 4 }}>Đăng nhập BTC</div>
-      <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>Nhập mã được BTC cung cấp</div>
+      <div style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>Nhập mã BTC được cung cấp</div>
       <input type="password" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }}
-        onKeyDown={e => e.key === "Enter" && submit()} placeholder="Nhập mã..."
+        onKeyDown={e => e.key === "Enter" && submit()} placeholder="Nhập mã BTC..."
         style={{ width: "100%", padding: "13px 14px", borderRadius: 10, border: `2px solid ${err ? "#e24b4a" : "#dde4f0"}`, fontSize: 16, textAlign: "center", letterSpacing: 4, boxSizing: "border-box", outline: "none", marginBottom: 8 }} autoFocus />
       {err && <div style={{ color: "#e24b4a", fontSize: 13, marginBottom: 8 }}>⚠️ {err}</div>}
       <button onClick={submit} style={{ width: "100%", padding: "13px 0", background: "#185FA5", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: 16 }}>Vào</button>
@@ -179,68 +193,64 @@ function BtcLogin({ onLogin }) {
   );
 }
 
-function StaffView({ zones, onAction, btcCode, onLogout }) {
+// ── Staff View ──────────────────────────────────────────────────
+function StaffView({ zones, btcCode, onLogout, onSubmit }) {
   const [zoneId, setZoneId] = useState(ZONES[0].id);
   const [count, setCount] = useState(1);
-  const [dialog, setDialog] = useState(null);
+  const [dialog, setDialog] = useState(null); // { type: "pin_in"|"confirm_out"|"confirm_busy"|"confirm_end" }
 
   const zoneDef = ZONES.find(z => z.id === zoneId);
   const zone = zones.find(z => z.id === zoneId) || { current_count: 0, total_visited: 0, is_busy: false, started_at: null };
 
   const group = zoneDef.group ? WORKSHOP_GROUPS[zoneDef.group] : null;
   const groupTotal = group ? group.ids.reduce((acc, id) => {
-    const z = zones.find(r => r.id === id);
-    return acc + (z ? z.total_visited : 0);
+    const z = zones.find(r => r.id === id); return acc + (z ? z.total_visited : 0);
   }, 0) : 0;
   const groupRemaining = group ? group.maxTotal - groupTotal : Infinity;
 
   const status = getStatus(zone.current_count, zoneDef.maxCapacity, zone.is_busy);
   const col = STATUS[status];
   const pct = Math.min(100, Math.round((zone.current_count / zoneDef.maxCapacity) * 100));
-  const remaining = zoneDef.maxCapacity - zone.current_count;
-  const maxIn = Math.min(remaining, groupRemaining);
+  const maxIn = Math.min(zoneDef.maxCapacity - zone.current_count, groupRemaining);
   const canIn = !zone.is_busy && maxIn > 0;
+  const canOut = !zone.is_busy && zone.current_count > 0;
 
-  function askIn() {
-    setDialog({ type: "pin_in", msg: `Ghi nhận ${count} khách VÀO\n"${zoneDef.name}"?` });
-  }
-  function askOut() {
-    setDialog({ type: "confirm_out", msg: `Xác nhận trừ ${count} khách ra\n"${zoneDef.name}"?` });
-  }
-  function askBusy() {
-    if (zone.is_busy) {
-      setDialog({ type: "confirm_end", msg: `Kết thúc session "${zoneDef.name}"?\nSố người sẽ về 0.` });
-    } else {
-      setDialog({ type: "confirm_busy", msg: `Bắt đầu session\n"${zoneDef.name}"?` });
-    }
-  }
-
-  async function handleConfirm(staffCode) {
-    const d = dialog;
-    setDialog(null);
+  // All actions go through onSubmit(zoneId, type, count, staffCode, zoneData, btcCode)
+  // btcCode is always passed from this component since it has it as prop
+  async function doAction(type, staffCode) {
+    await onSubmit(zoneId, type, count, staffCode, zone, btcCode);
     setCount(1);
-    if (d.type === "pin_in") {
-      await onAction(zoneId, "in", count, staffCode, zone);
-    } else if (d.type === "confirm_out") {
-      await onAction(zoneId, "out", count, `BTC-${btcCode}`, zone);
-    } else if (d.type === "confirm_busy") {
-      await onAction(zoneId, "busy", count, `BTC-${btcCode}`, zone);
-    } else if (d.type === "confirm_end") {
-      await onAction(zoneId, "end_session", count, `BTC-${btcCode}`, zone);
-    }
+  }
+
+  function openDialog(type) {
+    const msgs = {
+      pin_in:       `Ghi nhận ${count} khách VÀO\n"${zoneDef.name}"?`,
+      confirm_out:  `Xác nhận ${count} khách RA\n"${zoneDef.name}"?`,
+      confirm_busy: `Bắt đầu session\n"${zoneDef.name}"?`,
+      confirm_end:  `Kết thúc session "${zoneDef.name}"?\nSố người sẽ về 0.`,
+    };
+    setDialog({ type, msg: msgs[type] });
   }
 
   return (
     <div>
-      {dialog && (dialog.type === "confirm_out" || dialog.type === "confirm_end" || dialog.type === "confirm_busy") && (
-        <ConfirmDialog title={dialog.msg} onConfirm={() => handleConfirm(null)} onCancel={() => setDialog(null)} />
+      {dialog?.type === "pin_in" && (
+        <PinDialog title={dialog.msg}
+          onConfirm={async (staffCode) => { setDialog(null); await doAction("in", staffCode); }}
+          onCancel={() => setDialog(null)} />
       )}
-      {dialog && dialog.type === "pin_in" && (
-        <PinDialog title={dialog.msg} mode="staff" onConfirm={handleConfirm} onCancel={() => setDialog(null)} />
+      {(dialog?.type === "confirm_out" || dialog?.type === "confirm_busy" || dialog?.type === "confirm_end") && (
+        <ConfirmDialog title={dialog.msg}
+          onConfirm={async () => {
+            const t = dialog.type === "confirm_out" ? "out" : dialog.type === "confirm_busy" ? "busy" : "end_session";
+            setDialog(null);
+            await doAction(t, `BTC-${btcCode}`);
+          }}
+          onCancel={() => setDialog(null)} />
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, background: "#e6f1fb", borderRadius: 10, padding: "10px 14px" }}>
-        <div style={{ fontSize: 13, color: "#185FA5", fontWeight: 600 }}>🔐 Mã: {btcCode}</div>
+        <div style={{ fontSize: 13, color: "#185FA5", fontWeight: 600 }}>🔐 BTC: {btcCode}</div>
         <button onClick={onLogout} style={{ padding: "5px 12px", border: "1px solid #85B7EB", borderRadius: 8, background: "#fff", color: "#185FA5", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Đăng xuất</button>
       </div>
 
@@ -271,7 +281,7 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
         </div>
 
         {zoneDef.hasBusy && (
-          <button onClick={askBusy}
+          <button onClick={() => openDialog(zone.is_busy ? "confirm_end" : "confirm_busy")}
             style={{ width: "100%", padding: "11px 0", marginBottom: 12, border: "none", borderRadius: 10, background: zone.is_busy ? "#e24b4a" : "#185FA5", color: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>
             {zone.is_busy ? "⏹️ Kết thúc session (→ về 0)" : "▶️ Bắt đầu session"}
           </button>
@@ -296,12 +306,12 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
               )}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <button onClick={askIn} disabled={!canIn}
+              <button onClick={() => openDialog("pin_in")} disabled={!canIn}
                 style={{ padding: "18px 0", border: "none", borderRadius: 12, background: canIn ? "#3B6D11" : "#e0e0e0", color: "#fff", fontSize: 24, cursor: canIn ? "pointer" : "not-allowed", fontWeight: 900 }}>
                 <div>+{count}</div><div style={{ fontSize: 12, marginTop: 4 }}>Khách vào</div>
               </button>
-              <button onClick={askOut} disabled={zone.current_count === 0}
-                style={{ padding: "18px 0", border: "none", borderRadius: 12, background: zone.current_count > 0 ? "#e24b4a" : "#e0e0e0", color: "#fff", fontSize: 24, cursor: zone.current_count > 0 ? "pointer" : "not-allowed", fontWeight: 900 }}>
+              <button onClick={() => openDialog("confirm_out")} disabled={!canOut}
+                style={{ padding: "18px 0", border: "none", borderRadius: 12, background: canOut ? "#e24b4a" : "#e0e0e0", color: "#fff", fontSize: 24, cursor: canOut ? "pointer" : "not-allowed", fontWeight: 900 }}>
                 <div>−{count}</div><div style={{ fontSize: 12, marginTop: 4 }}>Khách ra</div>
               </button>
             </div>
@@ -312,6 +322,7 @@ function StaffView({ zones, onAction, btcCode, onLogout }) {
   );
 }
 
+// ── Admin Dashboard ─────────────────────────────────────────────
 function AdminDashboard({ zones }) {
   const counts = { available: 0, warning: 0, full: 0, busy: 0 };
   ZONES.forEach(z => {
@@ -331,11 +342,10 @@ function AdminDashboard({ zones }) {
       {Object.entries(WORKSHOP_GROUPS).map(([key, g]) => {
         const total = g.ids.reduce((acc, id) => { const z = zones.find(r => r.id === id); return acc + (z ? z.total_visited : 0); }, 0);
         const pct = Math.min(100, Math.round((total / g.maxTotal) * 100));
-        const label = key === "flower" ? "🌸 Workshop cắm hoa (tổng)" : "🌺 Workshop nước hoa (tổng)";
         return (
           <div key={key} style={{ background: "#fff", borderRadius: 12, padding: "12px 16px", marginBottom: 8, border: "1.5px solid #dde4f0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{label}</span>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>{key === "flower" ? "🌸 Workshop cắm hoa (tổng)" : "🌺 Workshop nước hoa (tổng)"}</span>
               <span style={{ fontSize: 13, color: "#185FA5", fontWeight: 700 }}>{total} / {g.maxTotal} lượt</span>
             </div>
             <div style={{ background: "#f0f0f0", borderRadius: 99, height: 8, overflow: "hidden" }}>
@@ -370,15 +380,12 @@ function AdminDashboard({ zones }) {
   );
 }
 
+// ── History ─────────────────────────────────────────────────────
 function HistoryTab({ logs, onClear }) {
   const [showConfirm, setShowConfirm] = useState(false);
   return (
     <div>
-      {showConfirm && (
-        <PinDialog title={`Xóa toàn bộ lịch sử\nvà reset tất cả zone?`} mode="admin"
-          onConfirm={() => { onClear(); setShowConfirm(false); }}
-          onCancel={() => setShowConfirm(false)} />
-      )}
+      {showConfirm && <AdminPinDialog onConfirm={() => { onClear(); setShowConfirm(false); }} onCancel={() => setShowConfirm(false)} />}
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
         <button onClick={() => setShowConfirm(true)} style={{ padding: "8px 16px", border: "none", borderRadius: 8, background: "#e24b4a", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
           🗑️ Xóa lịch sử & Reset zone
@@ -399,7 +406,7 @@ function HistoryTab({ logs, onClear }) {
                   </span>
                   <span style={{ fontSize: 13, color: "#555", marginLeft: 8 }}>{zone ? `${zone.icon} ${zone.name}` : log.zone_id}</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, minWidth: 0, marginLeft: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, marginLeft: 8 }}>
                   {log.btc_code && <span style={{ fontSize: 11, background: "#e6f1fb", color: "#185FA5", borderRadius: 8, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>🔐 Đăng nhập: {log.btc_code}</span>}
                   {log.staff_code && <span style={{ fontSize: 11, background: "#eaf3de", color: "#3B6D11", borderRadius: 8, padding: "2px 8px", whiteSpace: "nowrap" }}>👤 Xác nhận: {log.staff_code}</span>}
                 </div>
@@ -413,6 +420,7 @@ function HistoryTab({ logs, onClear }) {
   );
 }
 
+// ── App ──────────────────────────────────────────────────────────
 export default function App() {
   const [zones, setZones] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -429,7 +437,9 @@ export default function App() {
 
   useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
 
-  async function handleAction(zoneId, type, count, staffCode, zoneData, currentBtcCode) {
+  // Single entry point for all zone actions
+  // btcCode comes from StaffView which always has it as prop
+  async function handleSubmit(zoneId, type, count, staffCode, zoneData, currentBtcCode) {
     let fields = {};
     let action = type;
     if (type === "in") {
@@ -438,19 +448,17 @@ export default function App() {
       fields = { current_count: Math.max(0, zoneData.current_count - count) };
     } else if (type === "end_session") {
       fields = { current_count: 0, is_busy: false, started_at: null };
-      action = "end_session";
     } else if (type === "busy") {
-      const turningOn = !zoneData.is_busy;
-      fields = { is_busy: turningOn, started_at: turningOn ? new Date().toISOString() : null };
-      action = turningOn ? "busy_on" : "busy_off";
+      const on = !zoneData.is_busy;
+      fields = { is_busy: on, started_at: on ? new Date().toISOString() : null };
+      action = on ? "busy_on" : "busy_off";
     }
     await dbUpdateZone(zoneId, fields);
     await dbInsertLog({
-      zone_id: zoneId,
-      action,
+      zone_id: zoneId, action,
       count: (type === "busy" || type === "end_session") ? null : count,
       staff_code: staffCode,
-      btc_code: currentBtcCode ? `BTC-${currentBtcCode}` : null
+      btc_code: currentBtcCode || null,
     });
     await load();
   }
@@ -472,19 +480,17 @@ export default function App() {
         <div style={{ fontSize: 20, fontWeight: 800, color: "#1a1a2e" }}>🗺️ Zone Tracking</div>
         {!loading && <button onClick={load} style={{ marginTop: 6, padding: "4px 14px", background: "#185FA5", color: "#fff", border: "none", borderRadius: 20, cursor: "pointer", fontSize: 12 }}>🔄 Làm mới</button>}
       </div>
-
       <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "#e8e8e8", borderRadius: 10, padding: 4 }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{ flex: 1, padding: "8px 4px", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: tab === t.key ? 700 : 400, background: tab === t.key ? "#fff" : "transparent", color: tab === t.key ? "#185FA5" : "#555", fontSize: 12, boxShadow: tab === t.key ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>{t.label}</button>
         ))}
       </div>
-
       {loading
         ? <div style={{ textAlign: "center", padding: 60, color: "#888" }}>⏳ Đang tải...</div>
         : <>
             {tab === "staff" && (
               btcCode
-                ? <StaffView zones={zones} onAction={handleAction} btcCode={btcCode} onLogout={() => setBtcCode(null)} />
+                ? <StaffView zones={zones} btcCode={btcCode} onLogout={() => setBtcCode(null)} onSubmit={handleSubmit} />
                 : <BtcLogin onLogin={setBtcCode} />
             )}
             {tab === "admin"   && <AdminDashboard zones={zones} />}
