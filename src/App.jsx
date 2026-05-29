@@ -12,7 +12,7 @@ const STAFF_CODES = {
   "6012020": "Võ Minh Thiện", "6012327": "Huỳnh Thị Nhất Thương",
   "6012526": "Đặng Ngọc Lê Hoàng Oanh", "6012525": "Trần Hoàng Thịnh",
 };
-const BTC_LOGIN_CODES = ["0000", "1111", "6003450", "6011226", "6008340", "6011402", "6012470"];
+const BTC_LOGIN_CODES = ["0000", "1111", "6003450", "6011226", "6008340", "6011402", "6012470", "6012387"];
 const ADMIN_CODE = "Nh@u2005";
 
 const WORKSHOP_GROUPS = {
