@@ -21,17 +21,17 @@ const WORKSHOP_GROUPS = {
 };
 
 const ZONES = [
-  { id: "l1_reception",       name: "Tiếp đón L1",        icon: "🏛️", maxCapacity: 8,  hasBusy: false },
-  { id: "workshop_flower_1",  name: "Workshop cắm hoa 1",  icon: "🌸", maxCapacity: 6,  hasBusy: true,  group: "flower" },
-  { id: "workshop_flower_2",  name: "Workshop cắm hoa 2",  icon: "🌸", maxCapacity: 6,  hasBusy: true,  group: "flower" },
-  { id: "workshop_perfume_1", name: "Workshop nước hoa 1", icon: "🌺", maxCapacity: 4,  hasBusy: true,  group: "perfume" },
-  { id: "workshop_perfume_2", name: "Workshop nước hoa 2", icon: "🌺", maxCapacity: 4,  hasBusy: true,  group: "perfume" },
-  { id: "cinema",             name: "Cinema",              icon: "🎬", maxCapacity: 5,  hasBusy: true  },
-  { id: "amenities_l1",       name: "Amenities L1",        icon: "☕", maxCapacity: 6,  hasBusy: false },
-  { id: "showroom_1br",       name: "Nhà mẫu 1PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
-  { id: "showroom_2br",       name: "Nhà mẫu 2PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
-  { id: "showroom_3br",       name: "Nhà mẫu 3PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
-  { id: "pool",               name: "Hồ bơi",              icon: "🏊", maxCapacity: 4,  hasBusy: false },
+  { id: "l1_reception",       name: "Tiếp đón L1",        icon: "🏛️", maxCapacity: 8, hasBusy: false },
+  { id: "workshop_flower_1",  name: "Workshop cắm hoa 1",  icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
+  { id: "workshop_flower_2",  name: "Workshop cắm hoa 2",  icon: "🌸", maxCapacity: 6, hasBusy: true,  group: "flower" },
+  { id: "workshop_perfume_1", name: "Workshop nước hoa 1", icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
+  { id: "workshop_perfume_2", name: "Workshop nước hoa 2", icon: "🌺", maxCapacity: 4, hasBusy: true,  group: "perfume" },
+  { id: "cinema",             name: "Cinema",              icon: "🎬", maxCapacity: 5, hasBusy: true },
+  { id: "amenities_l1",       name: "Amenities L1",        icon: "☕", maxCapacity: 6, hasBusy: false },
+  { id: "showroom_1br",       name: "Nhà mẫu 1PN",         icon: "🛏️", maxCapacity: 3, hasBusy: false },
+  { id: "showroom_2br",       name: "Nhà mẫu 2PN",         icon: "🛏️", maxCapacity: 3, hasBusy: false },
+  { id: "showroom_3br",       name: "Nhà mẫu 3PN",         icon: "🛏️", maxCapacity: 3, hasBusy: false },
+  { id: "pool",               name: "Hồ bơi",              icon: "🏊", maxCapacity: 4, hasBusy: false },
 ];
 
 const STATUS = {
@@ -47,59 +47,82 @@ function getStatus(current, max, busy) {
   if (current >= max * 0.75) return "warning";
   return "available";
 }
+
 function fmtDuration(sec) {
-  return `${Math.floor(sec/60).toString().padStart(2,"0")}:${(sec%60).toString().padStart(2,"0")}`;
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-// ── Supabase ────────────────────────────────────────────────────
+function parseStart(startedAt) {
+  if (!startedAt) return null;
+  // Handle "2026-05-30 05:22:12.53+00" format from Supabase
+  const normalized = String(startedAt).replace(" ", "T").replace("+00", "+00:00");
+  const t = new Date(normalized).getTime();
+  return isNaN(t) ? null : t;
+}
+
+// ── Supabase helpers ────────────────────────────────────────────
 async function dbLoadZones() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zones?select=*`, { headers: HEADERS });
   return res.json();
 }
+
 async function dbUpdateZone(id, fields) {
   await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, {
     method: "PATCH",
     headers: { ...HEADERS, "Prefer": "return=minimal" },
-    body: JSON.stringify(fields)
+    body: JSON.stringify(fields),
   });
 }
-async function dbInsertLog(entry) {
-  await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(entry) });
+
+async function dbAtomicIncrement(zoneId, fieldName, delta) {
+  await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({ zone_id: zoneId, field_name: fieldName, delta_val: delta }),
+  });
 }
+
+async function dbInsertLog(entry) {
+  await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, {
+    method: "POST",
+    headers: { ...HEADERS, "Prefer": "return=minimal" },
+    body: JSON.stringify(entry),
+  });
+}
+
 async function dbLoadLogs() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zone_logs?select=*&order=created_at.desc&limit=100`, { headers: HEADERS });
   return res.json();
 }
+
 async function dbClearLogs() {
   await fetch(`${SUPABASE_URL}/rest/v1/zone_logs?id=gte.0`, { method: "DELETE", headers: { ...HEADERS, "Prefer": "return=minimal" } });
 }
+
 async function dbResetZones() {
   for (const z of ZONES) {
     await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${z.id}`, {
-      method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" },
-      body: JSON.stringify({ current_count: 0, total_visited: 0, is_busy: false, started_at: null })
+      method: "PATCH",
+      headers: { ...HEADERS, "Prefer": "return=minimal" },
+      body: JSON.stringify({ current_count: 0, total_visited: 0, is_busy: false, started_at: null }),
     });
   }
 }
 
 // ── Timers ──────────────────────────────────────────────────────
-function parseStart(startedAt) {
-  if (!startedAt) return null;
-  // Normalize: replace space with T, ensure UTC offset recognized
-  const normalized = startedAt.replace(" ", "T").replace("+00", "+00:00");
-  const t = new Date(normalized).getTime();
-  return isNaN(t) ? null : t;
-}
-
 function TimerLarge({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const start = parseStart(startedAt);
     if (!start) return;
     const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
-    tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
   }, [startedAt]);
-  if (!parseStart(startedAt)) return null;
+  const start = parseStart(startedAt);
+  if (!start) return null;
   return (
     <div style={{ textAlign: "center", margin: "8px 0", padding: "10px 0", background: "#e6f1fb", borderRadius: 10 }}>
       <div style={{ fontSize: 11, color: "#185FA5", fontWeight: 600, marginBottom: 2 }}>⏱️ Đang diễn ra</div>
@@ -114,10 +137,17 @@ function TimerSmall({ startedAt }) {
     const start = parseStart(startedAt);
     if (!start) return;
     const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
-    tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
   }, [startedAt]);
-  if (!parseStart(startedAt)) return null;
-  return <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>⏱️ {fmtDuration(elapsed)}</span>;
+  const start = parseStart(startedAt);
+  if (!start) return null;
+  return (
+    <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>
+      ⏱️ {fmtDuration(elapsed)}
+    </span>
+  );
 }
 
 // ── Dialogs ─────────────────────────────────────────────────────
@@ -213,7 +243,7 @@ function BtcLogin({ onLogin }) {
 function StaffView({ zones, btcCode, onLogout, onSubmit }) {
   const [zoneId, setZoneId] = useState(ZONES[0].id);
   const [count, setCount] = useState(1);
-  const [dialog, setDialog] = useState(null); // { type: "pin_in"|"confirm_out"|"confirm_busy"|"confirm_end" }
+  const [dialog, setDialog] = useState(null);
 
   const zoneDef = ZONES.find(z => z.id === zoneId);
   const zone = zones.find(z => z.id === zoneId) || { current_count: 0, total_visited: 0, is_busy: false, started_at: null };
@@ -231,8 +261,6 @@ function StaffView({ zones, btcCode, onLogout, onSubmit }) {
   const canIn = !zone.is_busy && maxIn > 0;
   const canOut = !zone.is_busy && zone.current_count > 0;
 
-  // All actions go through onSubmit(zoneId, type, count, staffCode, zoneData, btcCode)
-  // btcCode is always passed from this component since it has it as prop
   async function doAction(type, staffCode) {
     await onSubmit(zoneId, type, count, staffCode, zone, btcCode);
     setCount(1);
@@ -252,7 +280,7 @@ function StaffView({ zones, btcCode, onLogout, onSubmit }) {
     <div>
       {dialog?.type === "pin_in" && (
         <PinDialog title={dialog.msg}
-          onConfirm={async (staffCode) => { setDialog(null); await doAction("in", staffCode); }}
+          onConfirm={async sc => { setDialog(null); await doAction("in", sc); }}
           onCancel={() => setDialog(null)} />
       )}
       {(dialog?.type === "confirm_out" || dialog?.type === "confirm_busy" || dialog?.type === "confirm_end") && (
@@ -284,7 +312,7 @@ function StaffView({ zones, btcCode, onLogout, onSubmit }) {
           <div style={{ background: col.bg, color: col.text, borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700, border: `1px solid ${col.border}` }}>{col.label}</div>
         </div>
 
-        {zone.is_busy && zone.started_at && <TimerLarge startedAt={zone.started_at} />}
+        {zone.is_busy && <TimerLarge startedAt={zone.started_at} />}
 
         <div style={{ textAlign: "center", margin: "16px 0" }}>
           <div style={{ fontSize: 72, fontWeight: 900, color: col.text, lineHeight: 1 }}>{zone.current_count}</div>
@@ -451,27 +479,19 @@ export default function App() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, []);
 
-  // Single entry point for all zone actions
-  // btcCode comes from StaffView which always has it as prop
   async function handleSubmit(zoneId, type, count, staffCode, zoneData, currentBtcCode) {
     let action = type;
     if (type === "in") {
-      // Atomic increment to avoid race condition
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
-        method: "POST", headers: { ...HEADERS },
-        body: JSON.stringify({ zone_id: zoneId, field_name: "current_count", delta_val: count })
-      });
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
-        method: "POST", headers: { ...HEADERS },
-        body: JSON.stringify({ zone_id: zoneId, field_name: "total_visited", delta_val: count })
-      });
+      await dbAtomicIncrement(zoneId, "current_count", count);
+      await dbAtomicIncrement(zoneId, "total_visited", count);
     } else if (type === "out") {
-      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
-        method: "POST", headers: { ...HEADERS },
-        body: JSON.stringify({ zone_id: zoneId, field_name: "current_count", delta_val: -count })
-      });
+      await dbAtomicIncrement(zoneId, "current_count", -count);
     } else if (type === "end_session") {
       await dbUpdateZone(zoneId, { current_count: 0, is_busy: false, started_at: null });
     } else if (type === "busy") {
