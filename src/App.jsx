@@ -56,25 +56,12 @@ async function dbLoadZones() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zones?select=*`, { headers: HEADERS });
   return res.json();
 }
-async function dbUpdateZone(id, fields, increment) {
-  // If increment is provided, use Supabase RPC to atomically increment
-  if (increment) {
-    const { field, delta } = increment;
-    // Use raw SQL via RPC for atomic increment
-    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
-      method: "POST",
-      headers: { ...HEADERS },
-      body: JSON.stringify({ zone_id: id, field_name: field, delta_val: delta })
-    });
-    // Apply any non-increment fields separately
-    const rest = { ...fields };
-    delete rest[field];
-    if (Object.keys(rest).length > 0) {
-      await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(rest) });
-    }
-  } else {
-    await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(fields) });
-  }
+async function dbUpdateZone(id, fields) {
+  await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { ...HEADERS, "Prefer": "return=minimal" },
+    body: JSON.stringify(fields)
+  });
 }
 async function dbInsertLog(entry) {
   await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(entry) });
