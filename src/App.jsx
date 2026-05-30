@@ -16,7 +16,7 @@ const BTC_LOGIN_CODES = ["0000", "1111", "6003450", "6011226", "6008340", "60114
 const ADMIN_CODE = "Nh@u2005";
 
 const WORKSHOP_GROUPS = {
-  flower:  { ids: ["workshop_flower_1", "workshop_flower_2"],   maxTotal: 15 },
+  flower:  { ids: ["workshop_flower_1", "workshop_flower_2"],   maxTotal: 23 },
   perfume: { ids: ["workshop_perfume_1", "workshop_perfume_2"], maxTotal: 20 },
 };
 
@@ -28,9 +28,9 @@ const ZONES = [
   { id: "workshop_perfume_2", name: "Workshop nước hoa 2", icon: "🌺", maxCapacity: 4,  hasBusy: true,  group: "perfume" },
   { id: "cinema",             name: "Cinema",              icon: "🎬", maxCapacity: 5,  hasBusy: true  },
   { id: "amenities_l1",       name: "Amenities L1",        icon: "☕", maxCapacity: 6,  hasBusy: false },
-  { id: "showroom_1br",       name: "Nhà mẫu 1PN",         icon: "🛏️", maxCapacity: 2,  hasBusy: false },
-  { id: "showroom_2br",       name: "Nhà mẫu 2PN",         icon: "🛏️", maxCapacity: 2,  hasBusy: false },
-  { id: "showroom_3br",       name: "Nhà mẫu 3PN",         icon: "🛏️", maxCapacity: 2,  hasBusy: false },
+  { id: "showroom_1br",       name: "Nhà mẫu 1PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
+  { id: "showroom_2br",       name: "Nhà mẫu 2PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
+  { id: "showroom_3br",       name: "Nhà mẫu 3PN",         icon: "🛏️", maxCapacity: 3,  hasBusy: false },
   { id: "pool",               name: "Hồ bơi",              icon: "🏊", maxCapacity: 4,  hasBusy: false },
 ];
 
@@ -98,7 +98,9 @@ async function dbResetZones() {
 // ── Timers ──────────────────────────────────────────────────────
 function parseStart(startedAt) {
   if (!startedAt) return null;
-  const t = new Date(startedAt).getTime();
+  // Normalize: replace space with T, ensure UTC offset recognized
+  const normalized = startedAt.replace(" ", "T").replace("+00", "+00:00");
+  const t = new Date(normalized).getTime();
   return isNaN(t) ? null : t;
 }
 
