@@ -55,10 +55,16 @@ function fmtDuration(sec) {
 
 function parseStart(startedAt) {
   if (!startedAt) return null;
-  // Handle "2026-05-30 05:22:12.53+00" format from Supabase
-  const normalized = String(startedAt).replace(" ", "T").replace("+00", "+00:00");
-  const t = new Date(normalized).getTime();
-  return isNaN(t) ? null : t;
+  try {
+    let s = String(startedAt).trim();
+    s = s.replace(" ", "T");
+    s = s.replace(/\+00:?\d{0,2}$/, "Z");
+    if (!/Z$/.test(s) && !/[+-]\d{2}/.test(s.slice(-6))) {
+      s += "Z";
+    }
+    const t = new Date(s).getTime();
+    return isNaN(t) ? null : t;
+  } catch { return null; }
 }
 
 // ── Supabase helpers ────────────────────────────────────────────
