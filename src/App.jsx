@@ -96,15 +96,22 @@ async function dbResetZones() {
 }
 
 // ── Timers ──────────────────────────────────────────────────────
+function parseStart(startedAt) {
+  if (!startedAt) return null;
+  const s = startedAt.endsWith("Z") ? startedAt : startedAt + "Z";
+  const t = new Date(s).getTime();
+  return isNaN(t) ? null : t;
+}
+
 function TimerLarge({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    if (!startedAt) return;
-    // Ensure correct UTC parsing
-    const start = new Date(startedAt.endsWith("Z") ? startedAt : startedAt + "Z").getTime();
+    const start = parseStart(startedAt);
+    if (!start) return;
     const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
+  if (!parseStart(startedAt)) return null;
   return (
     <div style={{ textAlign: "center", margin: "8px 0", padding: "10px 0", background: "#e6f1fb", borderRadius: 10 }}>
       <div style={{ fontSize: 11, color: "#185FA5", fontWeight: 600, marginBottom: 2 }}>⏱️ Đang diễn ra</div>
@@ -112,13 +119,16 @@ function TimerLarge({ startedAt }) {
     </div>
   );
 }
+
 function TimerSmall({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    const start = new Date(startedAt.endsWith("Z") ? startedAt : startedAt + "Z").getTime();
+    const start = parseStart(startedAt);
+    if (!start) return;
     const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
+  if (!parseStart(startedAt)) return null;
   return <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>⏱️ {fmtDuration(elapsed)}</span>;
 }
 
