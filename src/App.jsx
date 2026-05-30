@@ -98,8 +98,7 @@ async function dbResetZones() {
 // ── Timers ──────────────────────────────────────────────────────
 function parseStart(startedAt) {
   if (!startedAt) return null;
-  const s = startedAt.endsWith("Z") ? startedAt : startedAt + "Z";
-  const t = new Date(s).getTime();
+  const t = new Date(startedAt).getTime();
   return isNaN(t) ? null : t;
 }
 
