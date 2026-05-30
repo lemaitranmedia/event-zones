@@ -56,8 +56,25 @@ async function dbLoadZones() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/zones?select=*`, { headers: HEADERS });
   return res.json();
 }
-async function dbUpdateZone(id, fields) {
-  await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(fields) });
+async function dbUpdateZone(id, fields, increment) {
+  // If increment is provided, use Supabase RPC to atomically increment
+  if (increment) {
+    const { field, delta } = increment;
+    // Use raw SQL via RPC for atomic increment
+    await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
+      method: "POST",
+      headers: { ...HEADERS },
+      body: JSON.stringify({ zone_id: id, field_name: field, delta_val: delta })
+    });
+    // Apply any non-increment fields separately
+    const rest = { ...fields };
+    delete rest[field];
+    if (Object.keys(rest).length > 0) {
+      await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(rest) });
+    }
+  } else {
+    await fetch(`${SUPABASE_URL}/rest/v1/zones?id=eq.${id}`, { method: "PATCH", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(fields) });
+  }
 }
 async function dbInsertLog(entry) {
   await fetch(`${SUPABASE_URL}/rest/v1/zone_logs`, { method: "POST", headers: { ...HEADERS, "Prefer": "return=minimal" }, body: JSON.stringify(entry) });
@@ -83,8 +100,9 @@ function TimerLarge({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!startedAt) return;
-    const start = new Date(startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    // Ensure correct UTC parsing
+    const start = new Date(startedAt.endsWith("Z") ? startedAt : startedAt + "Z").getTime();
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
   return (
@@ -97,8 +115,8 @@ function TimerLarge({ startedAt }) {
 function TimerSmall({ startedAt }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    const start = new Date(startedAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
+    const start = new Date(startedAt.endsWith("Z") ? startedAt : startedAt + "Z").getTime();
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
   }, [startedAt]);
   return <span style={{ fontSize: 12, color: "#185FA5", fontFamily: "monospace", fontWeight: 700, background: "#e6f1fb", borderRadius: 8, padding: "2px 8px" }}>⏱️ {fmtDuration(elapsed)}</span>;
@@ -440,20 +458,29 @@ export default function App() {
   // Single entry point for all zone actions
   // btcCode comes from StaffView which always has it as prop
   async function handleSubmit(zoneId, type, count, staffCode, zoneData, currentBtcCode) {
-    let fields = {};
     let action = type;
     if (type === "in") {
-      fields = { current_count: zoneData.current_count + count, total_visited: zoneData.total_visited + count };
+      // Atomic increment to avoid race condition
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
+        method: "POST", headers: { ...HEADERS },
+        body: JSON.stringify({ zone_id: zoneId, field_name: "current_count", delta_val: count })
+      });
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
+        method: "POST", headers: { ...HEADERS },
+        body: JSON.stringify({ zone_id: zoneId, field_name: "total_visited", delta_val: count })
+      });
     } else if (type === "out") {
-      fields = { current_count: Math.max(0, zoneData.current_count - count) };
+      await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_zone`, {
+        method: "POST", headers: { ...HEADERS },
+        body: JSON.stringify({ zone_id: zoneId, field_name: "current_count", delta_val: -count })
+      });
     } else if (type === "end_session") {
-      fields = { current_count: 0, is_busy: false, started_at: null };
+      await dbUpdateZone(zoneId, { current_count: 0, is_busy: false, started_at: null });
     } else if (type === "busy") {
       const on = !zoneData.is_busy;
-      fields = { is_busy: on, started_at: on ? new Date().toISOString() : null };
+      await dbUpdateZone(zoneId, { is_busy: on, started_at: on ? new Date().toISOString() : null });
       action = on ? "busy_on" : "busy_off";
     }
-    await dbUpdateZone(zoneId, fields);
     await dbInsertLog({
       zone_id: zoneId, action,
       count: (type === "busy" || type === "end_session") ? null : count,
